@@ -1,5 +1,6 @@
 # to
-Convert or diff between json, json5, toml and yaml. 
+
+A simple terminal utility to convert and diff between json, json5, toml and yaml.
 
 ## Usage
 
