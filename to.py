@@ -109,11 +109,13 @@ def stdout_available():
     except AttributeError:
         return False
 
+
 def stderr_available():
     try:
         return sys.stderr.isatty()
     except AttributeError:
         return False
+
 
 # ---[ IO ]---
 
@@ -329,9 +331,10 @@ def clean_data(data: T) -> T:
 def print_data_to_stdout(formatted_data: str, output_format: Format, *, pretty: bool):
     if pretty:
         rich = import_rich()
+        import rich.syntax
 
         console = rich.get_console()
-        syntax = rich.syntxa.Syntax(
+        syntax = rich.syntax.Syntax(
             formatted_data,
             lexer=output_format,
             theme="monokai",

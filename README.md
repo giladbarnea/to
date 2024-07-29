@@ -1,6 +1,38 @@
 # to
 
-A simple terminal utility to convert and diff between json, json5, toml and yaml.
+A single-file terminal utility to convert and diff between json, json5, toml and yaml.
+
+## Examples
+
+Given a json file `example.json`:
+
+```json
+{
+  "The Great Gatsby": {
+    "title": "The Great Gatsby",
+    "author": "F. Scott Fitzgerald",
+    "year": 1925,
+    "null_example": null,
+    "recommended": true,
+    "genres": ["Novel", "Fiction"]
+  }
+}
+```
+
+    $ to.py convert example.json -f yaml
+```yaml
+The Great Gatsby:
+    author: F. Scott Fitzgerald
+    genres:
+      - Novel
+      - Fiction
+    null_example: null
+    recommended: true
+    title: The Great Gatsby
+    year: 1925
+```
+
+```
 
 ## Usage
 
@@ -20,7 +52,7 @@ options:
 ```
 ———————
 
-#### `convert`
+#### `to convert`
 ```
 usage: to.py convert [-h] -f {json,json5,toml,yaml} [-o OUTPUT] [--width WIDTH] [--sort-keys] [--clean] [-p] [input]
 
@@ -40,7 +72,7 @@ options:
 ```
 ———————
 
-#### `diff`
+#### `to diff`
 ```
 usage: to.py diff [-h] [-o OUTPUT_OR_TOOL] -f {json,json5,toml,yaml} [-q] [--ignore-order] [--ignore-empty] [--ignore-space] input1 input2
 
