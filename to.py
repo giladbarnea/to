@@ -84,6 +84,7 @@ def import_rich():
 
 def is_piped():
     try:
+        print(f'{stdin_available() = }, {stdin_not_empty() = }')
         return not stdin_available() and stdin_not_empty()
     except AttributeError:
         return False
@@ -98,6 +99,7 @@ def stdin_available():
 
 def stdin_not_empty():
     try:
+        print(f'{os.fstat(sys.stdin.fileno()) = }')
         return os.fstat(sys.stdin.fileno()).st_size > 0
     except AttributeError:
         return False
@@ -189,6 +191,9 @@ def yaml_dumps(data) -> str:
     yaml.dump(data, output)
     return output.getvalue()
 
+# def jsonl_loads(data: str) -> str:
+#     lines = data.splitlines()
+
 
 def validate_file_extension(path):
     if Path(path).suffix not in (f".{ext}" for ext in SUPPORTED_FORMATS):
@@ -225,6 +230,12 @@ def load_input(input_arg: str) -> tuple[str, Format]:
 
 
 def detect_format(string: str) -> Format:
+    # try:
+    #     [json.loads(line) for line in string.splitlines()]
+    #     return "jsonl"
+    # except json.JSONDecodeError:
+    #     pass
+
     try:
         json.loads(string)
         return "json"
@@ -249,6 +260,11 @@ def detect_format(string: str) -> Format:
             pass
         else:
             raise
+    # try:
+    #     jsonl_loads(string)
+    #     return "jsonl"
+    # except json.JSONDecodeError:
+    #     pass
 
     try:
         yaml_loads(string)

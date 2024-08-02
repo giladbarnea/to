@@ -19,20 +19,20 @@ Given a json file `example.json`:
 }
 ```
 
+### `to convert -f yaml`
     $ to.py convert example.json -f yaml
-```yaml
-The Great Gatsby:
-    author: F. Scott Fitzgerald
-    genres:
-      - Novel
-      - Fiction
-    null_example: null
-    recommended: true
-    title: The Great Gatsby
-    year: 1925
-```
 
-```
+![json-to-yaml-example.png](docs/json-to-yaml-example.png)
+
+### `--clean` `--pretty` options
+
+    $ to.py convert example.json -f toml --clean --pretty
+The `--clean` flag removes the `null_example` key with a `null` value.
+
+The `--pretty` flag formats the output and prints it with syntax highlighting with `rich`.
+
+
+![json-to-toml-clean-pretty-example.png](/docs/json-to-toml-clean-pretty-example.png)
 
 ## Usage
 
