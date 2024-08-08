@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import functools
 import json
 import os
 import shlex
@@ -84,8 +85,11 @@ def import_rich():
 
 def is_piped():
     try:
-        print(f'{stdin_available() = }, {stdin_not_empty() = }')
-        return not stdin_available() and stdin_not_empty()
+        import rich
+
+        rich.print(f"{stdin_available() = }, {stdin_has_value() = }")
+        # Note: sgpt does stdin_passed=not stdin_available()
+        return not stdin_available() and stdin_has_value()
     except AttributeError:
         return False
 
@@ -97,13 +101,14 @@ def stdin_available():
         return False
 
 
-def stdin_not_empty():
-    try:
-        print(f'{os.fstat(sys.stdin.fileno()) = }')
-        return os.fstat(sys.stdin.fileno()).st_size > 0
-    except AttributeError:
-        return False
+def stdin_has_value():
+    return bool(read_stdin())
 
+
+@functools.lru_cache
+def read_stdin():
+    """stdin can be read only once, so cache the result."""
+    return sys.stdin.read()
 
 def stdout_available():
     try:
@@ -151,6 +156,8 @@ def json_dumps(data) -> str:
 
 
 def json5_loads(data: str) -> dict:
+    import rich
+    rich.print(f"{data = }")
     return import_json5().loads(data)
 
 
@@ -191,6 +198,7 @@ def yaml_dumps(data) -> str:
     yaml.dump(data, output)
     return output.getvalue()
 
+
 # def jsonl_loads(data: str) -> str:
 #     lines = data.splitlines()
 
@@ -207,26 +215,30 @@ def validate_file_extension(path):
 # ---[ User Input Utils ]---
 
 
-def load_input(input_arg: str) -> tuple[str, Format]:
+def load_input(input_arg: str, *, input_format: Format | None = None) -> tuple[str, Format]:
     """Returns a tuple of the input data and its format."""
     if input_arg == "-":
         assert is_piped(), "input arg is '-' but no data piped to stdin."
-        data = sys.stdin.read()
-        return data, detect_format(data)
+        data = read_stdin()
+        format = input_format if input_format else detect_format(data)
+        import rich
+
+        rich.print(f"{format = }")
+        return data, format
     if not input_arg:
         if not is_piped():
             raise ValueError(
                 "No input specified and stdin is not piped. Please provide input either as an argument or via stdin."
             )
-        data = sys.stdin.read()
-        return data, detect_format(data)
+        data = read_stdin()
+        return data, input_format if input_format else detect_format(data)
     if is_file(input_arg):
         validate_file_extension(input_arg)
         with open(input_arg, "r") as f:
             data = f.read()
         return data, cast(Format, Path(input_arg).suffix[1:])
     data = input_arg
-    return data, detect_format(data)
+    return data, input_format if input_format else detect_format(data)
 
 
 def detect_format(string: str) -> Format:
@@ -235,7 +247,6 @@ def detect_format(string: str) -> Format:
     #     return "jsonl"
     # except json.JSONDecodeError:
     #     pass
-
     try:
         json.loads(string)
         return "json"
@@ -293,6 +304,7 @@ T = typing.TypeVar("T", bound=dict | list | str | int | bool | None)
 
 def convert(args) -> None:
     input_arg = args.input
+    input_format: Format = args.input_format
     output_format: Format = args.output_format
     output_dest = args.output
     clean: bool = args.clean
@@ -301,7 +313,7 @@ def convert(args) -> None:
         raise ValueError("Pretty printing is only supported for standard output")
     SETTINGS["max_width"] = args.width
     SETTINGS["sort_keys"] = args.sort_keys
-    stringified_data = _convert(input_arg, output_format=output_format, should_clean=clean)
+    stringified_data = _convert(input_arg, input_format=input_format, output_format=output_format, should_clean=clean)
     if output_dest == STDOUT:
         print_data_to_stdout(stringified_data, output_format, pretty=pretty)
     else:
@@ -310,8 +322,8 @@ def convert(args) -> None:
         stderr_available() and stderr(f"✔ Data successfully written to {output_dest}")
 
 
-def _convert(input_arg: str, *, output_format: Format, should_clean: bool) -> str:
-    raw_input_data, input_format = load_input(input_arg)
+def _convert(input_arg: str, *, input_format: Format | None = None, output_format: Format, should_clean: bool) -> str:
+    raw_input_data, input_format = load_input(input_arg, input_format=input_format)
     parsed_data: dict = loads_data(raw_input_data, input_format)
     if should_clean:
         parsed_data = clean_data(parsed_data)
@@ -580,6 +592,12 @@ def define_convert_arguments(parser):
         help="Input string, file path, '-' for stdin. Can be omitted if piping data into the script",
         default="-",
         nargs="?",
+    )
+    parser.add_argument(
+        "--input-format",
+        help="Force input format. If not provided, the format will be detected.",
+        required=False,
+        choices=SUPPORTED_FORMATS,
     )
     parser.add_argument(
         "-f",
