@@ -11,7 +11,7 @@ import sys
 import tempfile
 import typing
 from pathlib import Path
-from typing import Literal, cast
+from typing import Literal
 
 Format = Literal["json", "json5", "toml", "yaml"]
 SUPPORTED_FORMATS: list[str] = Format.__args__
@@ -156,8 +156,6 @@ def json_dumps(data) -> str:
 
 
 def json5_loads(data: str) -> dict:
-    import rich
-    rich.print(f"{data = }")
     return import_json5().loads(data)
 
 
@@ -179,7 +177,8 @@ def toml_dumps(data) -> str:
             raise
         if stdin_available() and stdout_available():
             answer = input(
-                f'Got {e!r} while converting the data into toml. Data is a list, which is not supported by toml. Make it a dict by converting to {{"data": data}}? [y/n] '
+                f"Got {e!r} while converting the data into toml. Data is a list, which is not supported by toml. "
+                f'Make it a dict by converting to {{"data": data}}? [y/n] '
             )
             if answer.lower().strip() not in ("y", "yes"):
                 raise
@@ -203,15 +202,6 @@ def yaml_dumps(data) -> str:
 #     lines = data.splitlines()
 
 
-def validate_file_extension(path):
-    if Path(path).suffix not in (f".{ext}" for ext in SUPPORTED_FORMATS):
-        raise argparse.ArgumentTypeError(
-            f"File format {Path(path).suffix!r} not recognized. Please input a file with one of the following extensions: "
-            + SUPPORTED_FORMATS_STR
-        )
-    return path
-
-
 # ---[ User Input Utils ]---
 
 
@@ -221,9 +211,6 @@ def load_input(input_arg: str, *, input_format: Format | None = None) -> tuple[s
         assert is_piped(), "input arg is '-' but no data piped to stdin."
         data = read_stdin()
         format = input_format if input_format else detect_format(data)
-        import rich
-
-        rich.print(f"{format = }")
         return data, format
     if not input_arg:
         if not is_piped():
@@ -232,11 +219,10 @@ def load_input(input_arg: str, *, input_format: Format | None = None) -> tuple[s
             )
         data = read_stdin()
         return data, input_format if input_format else detect_format(data)
-    if is_file(input_arg):
-        validate_file_extension(input_arg)
-        with open(input_arg, "r") as f:
+    if input_path := is_file(input_arg):
+        with open(input_path, "r") as f:
             data = f.read()
-        return data, cast(Format, Path(input_arg).suffix[1:])
+        return data, input_format if input_format else detect_format(data)
     data = input_arg
     return data, input_format if input_format else detect_format(data)
 
@@ -289,11 +275,12 @@ def detect_format(string: str) -> Format:
     raise ValueError(f"Input format {string!r} not recognized. Please use one of {SUPPORTED_FORMATS_STR}")
 
 
-def is_file(input_arg: str | os.PathLike[str]) -> bool:
+def is_file(input_arg: str | os.PathLike[str]) -> Path | None:
     try:
-        return Path(input_arg).is_file()
+        path = Path(input_arg).expanduser()
+        return path if path.is_file() else None
     except OSError:
-        return False
+        return None
 
 
 # ===[ "Business" Logic ]===
@@ -302,7 +289,7 @@ def is_file(input_arg: str | os.PathLike[str]) -> bool:
 T = typing.TypeVar("T", bound=dict | list | str | int | bool | None)
 
 
-def convert(args) -> None:
+def convert(args) -> str:
     input_arg = args.input
     input_format: Format = args.input_format
     output_format: Format = args.output_format
@@ -320,6 +307,7 @@ def convert(args) -> None:
         with open(output_dest, "w") as f:
             f.write(stringified_data)
         stderr_available() and stderr(f"✔ Data successfully written to {output_dest}")
+    return stringified_data
 
 
 def _convert(input_arg: str, *, input_format: Format | None = None, output_format: Format, should_clean: bool) -> str:
@@ -352,6 +340,23 @@ def clean_data(data: T) -> T:
         return _clean_dict(data)
     if isinstance(data, list) and not isinstance(data, str):
         return _clean_sequence(data)
+
+    return data
+
+
+def sort_data(data: T) -> T:
+    """Recursively sort dictionary keys or iterable values."""
+
+    def _sort_dict(d: dict) -> dict:
+        return {k: sort_data(v) for k, v in sorted(d.items())}
+
+    def _sort_sequence(s: list) -> list:
+        return sorted(sort_data(v) for v in s)
+
+    if isinstance(data, dict):
+        return _sort_dict(data)
+    if isinstance(data, list) and not isinstance(data, str):
+        return _sort_sequence(data)
 
     return data
 
@@ -407,13 +412,13 @@ def diff(args) -> bool:
     stringified_data1: str = _convert(input1, output_format=output_format, should_clean=ignore_empty)
     stringified_data2: str = _convert(input2, output_format=output_format, should_clean=ignore_empty)
 
-    if is_file(input1):
-        input1_label = Path(input1).name
+    if input_path := is_file(input1):
+        input1_label = input_path.name
     else:
         input1_label = "left"
 
-    if is_file(input2):
-        input2_label = Path(input2).name
+    if input_path := is_file(input2):
+        input2_label = input_path.name
     else:
         input2_label = "right"
 
