@@ -110,6 +110,7 @@ def read_stdin():
     """stdin can be read only once, so cache the result."""
     return sys.stdin.read()
 
+
 def stdout_available():
     try:
         return sys.stdout.isatty()
@@ -249,6 +250,9 @@ def detect_format(string: str) -> Format:
             pass
         else:
             raise
+    import ipdb
+
+    ipdb.set_trace()
     try:
         toml_loads(string)
         return "toml"
@@ -630,10 +634,8 @@ def define_convert_arguments(parser):
     )
     parser.add_argument(
         "--sort-keys",
-        dest="sort_keys",
-        required=False,
-        action="store_true",
         default=SETTINGS["sort_keys"],
+        action=argparse.BooleanOptionalAction,
         help="Sort keys in the output.",
     )
     parser.add_argument(
