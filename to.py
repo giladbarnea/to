@@ -13,7 +13,7 @@ import typing
 from pathlib import Path
 from typing import Literal
 
-Format = Literal["json", "json5", "toml", "yaml"]
+Format = Literal["json", "json5", "toml", "yaml", "python"]
 SUPPORTED_FORMATS: list[str] = Format.__args__
 SUPPORTED_FORMATS_STR: str = ", ".join(SUPPORTED_FORMATS)
 STDOUT = "stdout"
@@ -137,6 +137,8 @@ def loads_data(data: str, input_format: Format) -> dict:
         return toml_loads(data)
     elif input_format == "yaml":
         return yaml_loads(data)
+    elif input_format == "python":
+        return eval(data)
     raise ValueError(f"Unsupported format: {input_format!r}. Please use one of {SUPPORTED_FORMATS_STR}")
 
 
@@ -149,6 +151,8 @@ def dumps_data(data: dict, output_format: Format) -> str:
         return toml_dumps(data)
     elif output_format == "yaml":
         return yaml_dumps(data)
+    elif output_format == "python":
+        return repr(data)
     raise ValueError(f"Unsupported format: {output_format!r}. Please use one of {SUPPORTED_FORMATS_STR}")
 
 
@@ -197,6 +201,15 @@ def yaml_dumps(data) -> str:
     output = io.StringIO()
     yaml.dump(data, output)
     return output.getvalue()
+
+
+def python_collection_loads(data: str) -> dict:
+    if not data.startswith("{") and not data.startswith("["):
+        raise ValueError("Data does not start with '{' or '['")
+    evaluated = eval(data)
+    if not isinstance(evaluated, (dict, list)):
+        raise TypeError(f"Data is not a dict or list: {evaluated!r}")
+    return evaluated
 
 
 # def jsonl_loads(data: str) -> str:
@@ -250,9 +263,7 @@ def detect_format(string: str) -> Format:
             pass
         else:
             raise
-    import ipdb
 
-    ipdb.set_trace()
     try:
         toml_loads(string)
         return "toml"
@@ -276,6 +287,16 @@ def detect_format(string: str) -> Format:
         else:
             raise
 
+    # import ipdb
+
+    # ipdb.set_trace()
+
+    try:
+        python_collection_loads(string)
+        return "python"
+    except Exception:
+        pass
+
     raise ValueError(f"Input format {string!r} not recognized. Please use one of {SUPPORTED_FORMATS_STR}")
 
 
@@ -290,7 +311,7 @@ def is_file(input_arg: str | os.PathLike[str]) -> Path | None:
 # ===[ "Business" Logic ]===
 # ---[ Convert ]---
 
-T = typing.TypeVar("T", bound=dict | list | str | int | bool | None)
+Serializable = typing.TypeVar("Serializable", bound=dict | list | str | int | bool | None)
 
 
 def convert(args) -> str:
@@ -323,7 +344,7 @@ def _convert(input_arg: str, *, input_format: Format | None = None, output_forma
     return stringified_data
 
 
-def clean_data(data: T) -> T:
+def clean_data(data: Serializable) -> Serializable:
     """Recursively remove keys with None or empty string values."""
 
     def _clean_dict(d: dict) -> dict:
@@ -348,7 +369,7 @@ def clean_data(data: T) -> T:
     return data
 
 
-def sort_data(data: T) -> T:
+def sort_data(data: Serializable) -> Serializable:
     """Recursively sort dictionary keys or iterable values."""
 
     def _sort_dict(d: dict) -> dict:
