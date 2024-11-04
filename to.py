@@ -11,7 +11,7 @@ import sys
 import tempfile
 import typing
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Optional, Union
 
 Format = Literal["json", "json5", "toml", "yaml", "python"]
 SUPPORTED_FORMATS: list[str] = Format.__args__
@@ -226,7 +226,7 @@ def python_collection_loads(data: str) -> dict:
 
 
 def load_input(
-    input_arg: str, *, input_format: Format | None = None
+    input_arg: str, *, input_format: Optional[Format] = None
 ) -> tuple[str, Format]:
     """Returns a tuple of the input data and its format."""
     if input_arg == "-":
@@ -310,7 +310,7 @@ def detect_format(string: str) -> Format:
     )
 
 
-def is_file(input_arg: str | os.PathLike[str]) -> Path | None:
+def is_file(input_arg: Union[str, os.PathLike[str]]) -> Optional[Path]:
     try:
         path = Path(input_arg).expanduser()
         return path if path.is_file() else None
@@ -322,7 +322,7 @@ def is_file(input_arg: str | os.PathLike[str]) -> Path | None:
 # ---[ Convert ]---
 
 Serializable = typing.TypeVar(
-    "Serializable", bound=dict | list | str | int | bool | None
+    "Serializable", bound=Optional[Union[dict, list, str, int, bool]]
 )
 
 
@@ -342,6 +342,7 @@ def convert(args: argparse.Namespace) -> str:
         input_format=input_format,
         output_format=output_format,
         should_clean=clean,
+        should_sort=SETTINGS["sort_keys"],
     )
     if output_dest == STDOUT:
         print_data_to_stdout(stringified_data, output_format, pretty=pretty)
@@ -355,14 +356,17 @@ def convert(args: argparse.Namespace) -> str:
 def _convert(
     input_arg: str,
     *,
-    input_format: Format | None = None,
+    input_format: Optional[Format] = None,
     output_format: Format,
     should_clean: bool,
+    should_sort: bool,
 ) -> str:
     raw_input_data, input_format = load_input(input_arg, input_format=input_format)
     parsed_data: dict = loads_data(raw_input_data, input_format)
     if should_clean:
         parsed_data = clean_data(parsed_data)
+    if should_sort:
+        parsed_data = sort_data(parsed_data)
     stringified_data = dumps_data(parsed_data, output_format)
     return stringified_data
 
@@ -439,7 +443,7 @@ def diff(args: argparse.Namespace) -> bool:
     """Return True if the two inputs are the same."""
     input1, input2 = args.input1, args.input2
     output_format: Format = args.output_format
-    output_or_tool: DiffTool | str = args.output_or_tool
+    output_or_tool: Union[DiffTool, str] = args.output_or_tool
     input1_label = args.input1_label
     input2_label = args.input2_label
     quiet: bool = bool(args.quiet)
@@ -464,13 +468,13 @@ def diff(args: argparse.Namespace) -> bool:
         input1,
         output_format=output_format,
         should_clean=ignore_empty,
-        should_sort=ignore_order,
+        should_sort=SETTINGS["sort_keys"],
     )
     stringified_data2: str = _convert(
         input2,
         output_format=output_format,
         should_clean=ignore_empty,
-        should_sort=ignore_order,
+        should_sort=SETTINGS["sort_keys"],
     )
 
     if not input1_label:
@@ -556,7 +560,7 @@ def run_coreutils_diff(
     input2_label: str,
     ignore_space: bool,
     quiet: bool = False,
-    output_dest: str | Path | None = None,
+    output_dest: Optional[Union[str, Path]] = None,
 ) -> bool:
     """Return True if the inputs are the same."""
     whitespace_ignoring_options = [
