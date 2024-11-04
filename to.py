@@ -23,7 +23,7 @@ SETTINGS = {"max_width": 120, "sort_keys": True}
 # ===[ Functional ]===
 # ---[ Helpers ]---
 def stderr(*args, **kwargs):
-    print(*args, file=sys.stderr, **kwargs)
+    print(*args, file=sys.stderr, flush=True, **kwargs)
 
 
 def import_json5():
@@ -48,7 +48,9 @@ def import_yaml():
     try:
         from ruamel.yaml import YAML
     except ImportError:
-        stderr("ruamel.yaml module not found. Please install via 'pip install \"ruamel.yaml\"'")
+        stderr(
+            "ruamel.yaml module not found. Please install via 'pip install \"ruamel.yaml\"'"
+        )
         raise
 
     def str_representer(dumper, data):
@@ -87,7 +89,7 @@ def is_piped():
     try:
         import rich
 
-        rich.print(f"{stdin_available() = }, {stdin_has_value() = }")
+        rich.print(f"{stdin_available() = }, {stdin_has_value() = }", flush=True)
         # Note: sgpt does stdin_passed=not stdin_available()
         return not stdin_available() and stdin_has_value()
     except AttributeError:
@@ -139,7 +141,9 @@ def loads_data(data: str, input_format: Format) -> dict:
         return yaml_loads(data)
     elif input_format == "python":
         return eval(data)
-    raise ValueError(f"Unsupported format: {input_format!r}. Please use one of {SUPPORTED_FORMATS_STR}")
+    raise ValueError(
+        f"Unsupported format: {input_format!r}. Please use one of {SUPPORTED_FORMATS_STR}"
+    )
 
 
 def dumps_data(data: dict, output_format: Format) -> str:
@@ -153,7 +157,9 @@ def dumps_data(data: dict, output_format: Format) -> str:
         return yaml_dumps(data)
     elif output_format == "python":
         return repr(data)
-    raise ValueError(f"Unsupported format: {output_format!r}. Please use one of {SUPPORTED_FORMATS_STR}")
+    raise ValueError(
+        f"Unsupported format: {output_format!r}. Please use one of {SUPPORTED_FORMATS_STR}"
+    )
 
 
 def json_dumps(data) -> str:
@@ -219,7 +225,9 @@ def python_collection_loads(data: str) -> dict:
 # ---[ User Input Utils ]---
 
 
-def load_input(input_arg: str, *, input_format: Format | None = None) -> tuple[str, Format]:
+def load_input(
+    input_arg: str, *, input_format: Format | None = None
+) -> tuple[str, Format]:
     """Returns a tuple of the input data and its format."""
     if input_arg == "-":
         assert is_piped(), "input arg is '-' but no data piped to stdin."
@@ -297,7 +305,9 @@ def detect_format(string: str) -> Format:
     except Exception:
         pass
 
-    raise ValueError(f"Input format {string!r} not recognized. Please use one of {SUPPORTED_FORMATS_STR}")
+    raise ValueError(
+        f"Input format {string!r} not recognized. Please use one of {SUPPORTED_FORMATS_STR}"
+    )
 
 
 def is_file(input_arg: str | os.PathLike[str]) -> Path | None:
@@ -311,10 +321,12 @@ def is_file(input_arg: str | os.PathLike[str]) -> Path | None:
 # ===[ "Business" Logic ]===
 # ---[ Convert ]---
 
-Serializable = typing.TypeVar("Serializable", bound=dict | list | str | int | bool | None)
+Serializable = typing.TypeVar(
+    "Serializable", bound=dict | list | str | int | bool | None
+)
 
 
-def convert(args) -> str:
+def convert(args: argparse.Namespace) -> str:
     input_arg = args.input
     input_format: Format = args.input_format
     output_format: Format = args.output_format
@@ -325,7 +337,12 @@ def convert(args) -> str:
         raise ValueError("Pretty printing is only supported for standard output")
     SETTINGS["max_width"] = args.width
     SETTINGS["sort_keys"] = args.sort_keys
-    stringified_data = _convert(input_arg, input_format=input_format, output_format=output_format, should_clean=clean)
+    stringified_data = _convert(
+        input_arg,
+        input_format=input_format,
+        output_format=output_format,
+        should_clean=clean,
+    )
     if output_dest == STDOUT:
         print_data_to_stdout(stringified_data, output_format, pretty=pretty)
     else:
@@ -335,7 +352,13 @@ def convert(args) -> str:
     return stringified_data
 
 
-def _convert(input_arg: str, *, input_format: Format | None = None, output_format: Format, should_clean: bool) -> str:
+def _convert(
+    input_arg: str,
+    *,
+    input_format: Format | None = None,
+    output_format: Format,
+    should_clean: bool,
+) -> str:
     raw_input_data, input_format = load_input(input_arg, input_format=input_format)
     parsed_data: dict = loads_data(raw_input_data, input_format)
     if should_clean:
@@ -403,7 +426,7 @@ def print_data_to_stdout(formatted_data: str, output_format: Format, *, pretty: 
         )
         console.print(syntax)
     else:
-        print(formatted_data)
+        print(formatted_data, flush=True)
 
 
 # ---[ Diff ]---
@@ -412,11 +435,13 @@ DiffTool = Literal["diff", "delta", "code", "pycharm"]
 SUPPORTED_DIFF_TOOLS: list[DiffTool] = ["diff", "delta", "code", "pycharm"]
 
 
-def diff(args) -> bool:
+def diff(args: argparse.Namespace) -> bool:
     """Return True if the two inputs are the same."""
     input1, input2 = args.input1, args.input2
     output_format: Format = args.output_format
     output_or_tool: DiffTool | str = args.output_or_tool
+    input1_label = args.input1_label
+    input2_label = args.input2_label
     quiet: bool = bool(args.quiet)
     ignore_order: bool = args.ignore_order
     ignore_empty: bool = args.ignore_empty
@@ -428,29 +453,52 @@ def diff(args) -> bool:
         )
     if quiet and output_or_tool != "diff":
         raise argparse.ArgumentError(
-            argument=None, message="Quiet mode is only supported with coreutils diff, e.g. -o diff."
+            argument=None,
+            message="Quiet mode is only supported with coreutils diff, e.g. -o diff.",
         )
 
     SETTINGS["sort_keys"] = ignore_order
     if ignore_space:
         SETTINGS["max_width"] = 999
-    stringified_data1: str = _convert(input1, output_format=output_format, should_clean=ignore_empty)
-    stringified_data2: str = _convert(input2, output_format=output_format, should_clean=ignore_empty)
+    stringified_data1: str = _convert(
+        input1,
+        output_format=output_format,
+        should_clean=ignore_empty,
+        should_sort=ignore_order,
+    )
+    stringified_data2: str = _convert(
+        input2,
+        output_format=output_format,
+        should_clean=ignore_empty,
+        should_sort=ignore_order,
+    )
 
-    if input_path := is_file(input1):
-        input1_label = input_path.name
-    else:
-        input1_label = "left"
+    if not input1_label:
+        if input_path := is_file(input1):
+            input1_label = input_path.name
+        else:
+            input1_label = "input1"
 
-    if input_path := is_file(input2):
-        input2_label = input_path.name
-    else:
-        input2_label = "right"
+    if not input2_label:
+        if input_path := is_file(input2):
+            input2_label = input_path.name
+        else:
+            input2_label = "input2"
+
+    input1_label, input2_label = input1_label + "_", input2_label + "_"
 
     with tempfile.NamedTemporaryFile(
-        mode="w", suffix=f".{output_format}", prefix=input1_label, dir="/tmp", delete=False
+        mode="w",
+        suffix=f".{output_format}",
+        prefix=input1_label,
+        dir="/tmp",
+        delete=False,
     ) as temp1, tempfile.NamedTemporaryFile(
-        mode="w", suffix=f".{output_format}", prefix=input2_label, dir="/tmp", delete=False
+        mode="w",
+        suffix=f".{output_format}",
+        prefix=input2_label,
+        dir="/tmp",
+        delete=False,
     ) as temp2:
         temp1.write(stringified_data1)
         temp2.write(stringified_data2)
@@ -461,6 +509,7 @@ def diff(args) -> bool:
 
         write_to_file: bool = output_or_tool not in SUPPORTED_DIFF_TOOLS
         if write_to_file:
+            output_path = output_or_tool
             return run_coreutils_diff(
                 temp1_path,
                 temp2_path,
@@ -468,7 +517,7 @@ def diff(args) -> bool:
                 input2_label=input2_label,
                 ignore_space=ignore_space,
                 quiet=quiet,
-                output_dest=output_or_tool,
+                output_dest=output_path,
             )
 
         if output_or_tool == "diff":
@@ -568,7 +617,11 @@ class HelpFormatter(argparse.ArgumentDefaultsHelpFormatter):
             help_text += "\n" + "—" * 80 + f"\n\n\x1b[47;30m{name}\x1b[0m\n"
             original_formatter = subparser.formatter_class
             subparser.formatter_class = argparse.ArgumentDefaultsHelpFormatter
-            subparser_help = subparser.format_help().replace("\x1b[47;30m", "").replace("\x1b[0m", "")
+            subparser_help = (
+                subparser.format_help()
+                .replace("\x1b[47;30m", "")
+                .replace("\x1b[0m", "")
+            )
             help_text += subparser_help
             subparser.formatter_class = original_formatter
 
@@ -588,7 +641,9 @@ def main():
 
     # Convert command
     convert_parser = subparsers.add_parser(
-        "convert", help="Convert between different formats.", formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        "convert",
+        help="Convert between different formats.",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
 
     define_convert_arguments(convert_parser)
@@ -701,6 +756,20 @@ def define_diff_arguments(diff_parser):
         "--quiet",
         action="store_true",
         help="Do not print the diff to stdout, only return 0 for no difference, 1 for difference.",
+    )
+
+    diff_parser.add_argument(
+        "--input1-label",
+        dest="input1_label",
+        required=False,
+        help="Label for the first input. If unspecified, the filename is used if input1 is a file, otherwise 'input1_'.",
+    )
+
+    diff_parser.add_argument(
+        "--input2-label",
+        dest="input2_label",
+        required=False,
+        help="Label for the second input. If unspecified, the filename is used if input2 is a file, otherwise 'input2_'.",
     )
 
     diff_parser.add_argument(
