@@ -48,9 +48,7 @@ def import_yaml():
     try:
         from ruamel.yaml import YAML
     except ImportError:
-        stderr(
-            "ruamel.yaml module not found. Please install via 'pip install \"ruamel.yaml\"'"
-        )
+        stderr("ruamel.yaml module not found. Please install via 'pip install \"ruamel.yaml\"'")
         raise
 
     def str_representer(dumper, data):
@@ -141,9 +139,7 @@ def loads_data(data: str, input_format: Format) -> dict:
         return yaml_loads(data)
     elif input_format == "python":
         return eval(data)
-    raise ValueError(
-        f"Unsupported format: {input_format!r}. Please use one of {SUPPORTED_FORMATS_STR}"
-    )
+    raise ValueError(f"Unsupported format: {input_format!r}. Please use one of {SUPPORTED_FORMATS_STR}")
 
 
 def dumps_data(data: dict, output_format: Format) -> str:
@@ -157,9 +153,7 @@ def dumps_data(data: dict, output_format: Format) -> str:
         return yaml_dumps(data)
     elif output_format == "python":
         return repr(data)
-    raise ValueError(
-        f"Unsupported format: {output_format!r}. Please use one of {SUPPORTED_FORMATS_STR}"
-    )
+    raise ValueError(f"Unsupported format: {output_format!r}. Please use one of {SUPPORTED_FORMATS_STR}")
 
 
 def json_dumps(data) -> str:
@@ -225,9 +219,7 @@ def python_collection_loads(data: str) -> dict:
 # ---[ User Input Utils ]---
 
 
-def load_input(
-    input_arg: str, *, input_format: Optional[Format] = None
-) -> tuple[str, Format]:
+def load_input(input_arg: str, *, input_format: Optional[Format] = None) -> tuple[str, Format]:
     """Returns a tuple of the input data and its format."""
     if input_arg == "-":
         assert is_piped(), "input arg is '-' but no data piped to stdin."
@@ -305,9 +297,7 @@ def detect_format(string: str) -> Format:
     except Exception:
         pass
 
-    raise ValueError(
-        f"Input format {string!r} not recognized. Please use one of {SUPPORTED_FORMATS_STR}"
-    )
+    raise ValueError(f"Input format {string!r} not recognized. Please use one of {SUPPORTED_FORMATS_STR}")
 
 
 def is_file(input_arg: Union[str, os.PathLike[str]]) -> Optional[Path]:
@@ -321,9 +311,7 @@ def is_file(input_arg: Union[str, os.PathLike[str]]) -> Optional[Path]:
 # ===[ "Business" Logic ]===
 # ---[ Convert ]---
 
-Serializable = typing.TypeVar(
-    "Serializable", bound=Optional[Union[dict, list, str, int, bool]]
-)
+Serializable = typing.TypeVar("Serializable", bound=Optional[Union[dict, list, str, int, bool]])
 
 
 def convert(args: argparse.Namespace) -> str:
@@ -403,7 +391,10 @@ def sort_data(data: Serializable) -> Serializable:
         return {k: sort_data(v) for k, v in sorted(d.items())}
 
     def _sort_sequence(s: list) -> list:
-        return sorted(sort_data(v) for v in s)
+        try:
+            return sorted(sort_data(v) for v in s)
+        except TypeError:
+            return sorted((sort_data(v) for v in s), key=str)
 
     if isinstance(data, dict):
         return _sort_dict(data)
@@ -621,11 +612,7 @@ class HelpFormatter(argparse.ArgumentDefaultsHelpFormatter):
             help_text += "\n" + "—" * 80 + f"\n\n\x1b[47;30m{name}\x1b[0m\n"
             original_formatter = subparser.formatter_class
             subparser.formatter_class = argparse.ArgumentDefaultsHelpFormatter
-            subparser_help = (
-                subparser.format_help()
-                .replace("\x1b[47;30m", "")
-                .replace("\x1b[0m", "")
-            )
+            subparser_help = subparser.format_help().replace("\x1b[47;30m", "").replace("\x1b[0m", "")
             help_text += subparser_help
             subparser.formatter_class = original_formatter
 
