@@ -622,7 +622,7 @@ class HelpFormatter(argparse.ArgumentDefaultsHelpFormatter):
 def main():
     formatter = HelpFormatter(prog="to.py")
     parser = argparse.ArgumentParser(
-        description="Convert or compare between JSON, YAML, TOML, JSON5 and literal Python collections.",
+        description="Convert or diff between JSON, YAML, TOML, JSON5 and literal Python collections.",
         formatter_class=lambda prog: formatter,
     )
     subparsers = parser.add_subparsers(dest="command")
@@ -630,7 +630,7 @@ def main():
     # Convert command
     convert_parser = subparsers.add_parser(
         "convert",
-        help="Convert between different formats.",
+        help="Convert between JSON, YAML, TOML, JSON5 and literal Python collections.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
 
@@ -640,7 +640,7 @@ def main():
     # Diff command
     diff_parser = subparsers.add_parser(
         "diff",
-        help="Convert two files or raw data to FORMAT, then diff the results.",
+        help="Diff between JSON, YAML, TOML, JSON5 and literal Python collections.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
 

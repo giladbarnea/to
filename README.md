@@ -1,6 +1,6 @@
 # to
 
-A single-file terminal and python-importable utility to convert or compare between JSON, YAML, TOML, JSON5 and literal Python collections.
+CLI & Python package to convert or diff between JSON, YAML, TOML, JSON5 and literal Python collections.
 
 ## Examples
 

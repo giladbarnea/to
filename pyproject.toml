@@ -1,7 +1,7 @@
 [project]
 name = "to"
 version = "0.1"
-description = "Convert or compare between JSON, YAML, TOML, JSON5 and literal Python collections."
+description = "CLI & Python package to convert or diff between JSON, YAML, TOML, JSON5 and literal Python collections."
 requires-python = ">=3.10"
 
 [project.scripts]
@@ -13,6 +13,7 @@ build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = [
+    "ipython",
     "ruff",
 ]
 pretty = [
