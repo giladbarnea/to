@@ -606,42 +606,12 @@ def run_coreutils_diff(
 # ===[ CLI ]===
 
 
-class HelpFormatter(argparse.ArgumentDefaultsHelpFormatter):
-    def __init__(self, prog):
-        super().__init__(prog, max_help_position=40, width=80)
-        self.subparsers = {}
-
-    def add_subparser(self, name, parser):
-        self.subparsers[name] = parser
-
-    def format_help(self):
-        help_text = super().format_help()
-        horizontal_separator = "\x1b[30m" + "—" * 80 + "\x1b[0m"
-        for name, subparser in self.subparsers.items():
-            help_text += (
-                "\n " + horizontal_separator + f"\n\n\x1b[47;30m{name}\x1b[0m\n"
-            )
-            original_formatter = subparser.formatter_class
-            subparser.formatter_class = argparse.ArgumentDefaultsHelpFormatter
-            subparser_help = (
-                subparser.format_help()
-                .replace("\x1b[47;30m", "")
-                .replace("\x1b[0m", "")
-            )
-            help_text += subparser_help
-            subparser.formatter_class = original_formatter
-
-        title, *rest = help_text.splitlines()
-        title = f"\x1b[47;30m{title}\x1b[0m"
-        help_text = "\n".join([title, *rest]) + "\n"
-        return help_text
-
-
 def main():
-    formatter = HelpFormatter(prog="to.py")
     parser = argparse.ArgumentParser(
         description="Convert or diff between JSON, YAML, TOML, JSON5 and literal Python collections.",
-        formatter_class=lambda prog: formatter,
+        formatter_class=lambda prog: argparse.ArgumentDefaultsHelpFormatter(
+            prog=prog, max_help_position=40, width=80
+        ),
     )
     subparsers = parser.add_subparsers(
         dest="command", required=False, metavar="command"
@@ -655,7 +625,6 @@ def main():
     )
 
     define_convert_arguments(convert_parser)
-    formatter.add_subparser("convert", convert_parser)
 
     # Diff command
     diff_parser: argparse.ArgumentParser = subparsers.add_parser(
@@ -665,7 +634,6 @@ def main():
     )
 
     define_diff_arguments(diff_parser)
-    formatter.add_subparser("diff", diff_parser)
 
     args: argparse.Namespace = parser.parse_args()
     if args.command is None:
@@ -716,7 +684,7 @@ def define_convert_arguments(parser):
         required=False,
         type=int,
         default=SETTINGS["max_width"],
-        help="Maximum line width. Currently only enforced in YAML"
+        help="Maximum line width. Currently only enforced in YAML",
     )
     parser.add_argument(
         "--sort-keys",
