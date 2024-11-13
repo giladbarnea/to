@@ -48,7 +48,9 @@ def import_yaml():
     try:
         from ruamel.yaml import YAML
     except ImportError:
-        stderr("ruamel.yaml module not found. Please install via 'pip install \"ruamel.yaml\"'")
+        stderr(
+            "ruamel.yaml module not found. Please install via 'pip install \"ruamel.yaml\"'"
+        )
         raise
 
     def str_representer(dumper, data):
@@ -136,7 +138,9 @@ def loads_data(data: str, input_format: Format) -> dict:
         return yaml_loads(data)
     elif input_format == "python":
         return eval(data)
-    raise ValueError(f"Unsupported format: {input_format!r}. Please use one of {SUPPORTED_FORMATS_STR}")
+    raise ValueError(
+        f"Unsupported format: {input_format!r}. Please use one of {SUPPORTED_FORMATS_STR}"
+    )
 
 
 def dumps_data(data: dict, output_format: Format) -> str:
@@ -150,7 +154,9 @@ def dumps_data(data: dict, output_format: Format) -> str:
         return yaml_dumps(data)
     elif output_format == "python":
         return repr(data)
-    raise ValueError(f"Unsupported format: {output_format!r}. Please use one of {SUPPORTED_FORMATS_STR}")
+    raise ValueError(
+        f"Unsupported format: {output_format!r}. Please use one of {SUPPORTED_FORMATS_STR}"
+    )
 
 
 def json_dumps(data) -> str:
@@ -216,7 +222,9 @@ def python_collection_loads(data: str) -> dict:
 # ---[ User Input Utils ]---
 
 
-def load_input(input_arg: str, *, input_format: Optional[Format] = None) -> tuple[str, Format]:
+def load_input(
+    input_arg: str, *, input_format: Optional[Format] = None
+) -> tuple[str, Format]:
     """Returns a tuple of the input data and its format."""
     if input_arg == "-":
         assert is_piped(), "input arg is '-' but no data piped to stdin."
@@ -294,7 +302,9 @@ def detect_format(string: str) -> Format:
     except Exception:
         pass
 
-    raise ValueError(f"Input format {string!r} not recognized. Please use one of {SUPPORTED_FORMATS_STR}")
+    raise ValueError(
+        f"Input format {string!r} not recognized. Please use one of {SUPPORTED_FORMATS_STR}"
+    )
 
 
 def is_file(input_arg: Union[str, os.PathLike[str]]) -> Optional[Path]:
@@ -308,7 +318,9 @@ def is_file(input_arg: Union[str, os.PathLike[str]]) -> Optional[Path]:
 # ===[ "Business" Logic ]===
 # ---[ Convert ]---
 
-Serializable = typing.TypeVar("Serializable", bound=Optional[Union[dict, list, str, int, bool]])
+Serializable = typing.TypeVar(
+    "Serializable", bound=Optional[Union[dict, list, str, int, bool]]
+)
 
 
 def convert(args: argparse.Namespace) -> str:
@@ -604,12 +616,18 @@ class HelpFormatter(argparse.ArgumentDefaultsHelpFormatter):
 
     def format_help(self):
         help_text = super().format_help()
-        horizontal_separator = '\x1b[30m' + "—" * 80 + '\x1b[0m'
+        horizontal_separator = "\x1b[30m" + "—" * 80 + "\x1b[0m"
         for name, subparser in self.subparsers.items():
-            help_text += "\n " + horizontal_separator + f"\n\n\x1b[47;30m{name}\x1b[0m\n"
+            help_text += (
+                "\n " + horizontal_separator + f"\n\n\x1b[47;30m{name}\x1b[0m\n"
+            )
             original_formatter = subparser.formatter_class
             subparser.formatter_class = argparse.ArgumentDefaultsHelpFormatter
-            subparser_help = subparser.format_help().replace("\x1b[47;30m", "").replace("\x1b[0m", "")
+            subparser_help = (
+                subparser.format_help()
+                .replace("\x1b[47;30m", "")
+                .replace("\x1b[0m", "")
+            )
             help_text += subparser_help
             subparser.formatter_class = original_formatter
 
@@ -625,10 +643,12 @@ def main():
         description="Convert or diff between JSON, YAML, TOML, JSON5 and literal Python collections.",
         formatter_class=lambda prog: formatter,
     )
-    subparsers = parser.add_subparsers(dest="command")
+    subparsers = parser.add_subparsers(
+        dest="command", required=False, metavar="command"
+    )
 
     # Convert command
-    convert_parser = subparsers.add_parser(
+    convert_parser: argparse.ArgumentParser = subparsers.add_parser(
         "convert",
         help="Convert between JSON, YAML, TOML, JSON5 and literal Python collections.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -638,7 +658,7 @@ def main():
     formatter.add_subparser("convert", convert_parser)
 
     # Diff command
-    diff_parser = subparsers.add_parser(
+    diff_parser: argparse.ArgumentParser = subparsers.add_parser(
         "diff",
         help="Diff between JSON, YAML, TOML, JSON5 and literal Python collections.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -647,7 +667,9 @@ def main():
     define_diff_arguments(diff_parser)
     formatter.add_subparser("diff", diff_parser)
 
-    args = parser.parse_args()
+    args: argparse.Namespace = parser.parse_args()
+    if args.command is None:
+        args.command = "convert"
 
     if args.command == "diff":
         no_difference: bool = diff(args)
@@ -662,13 +684,13 @@ def main():
 def define_convert_arguments(parser):
     parser.add_argument(
         "input",
-        help="Input string, file path, '-' for stdin. Can be omitted if piping data into the script",
+        help="Data to convert. Can be a string, file path, or '-' for stdin. If data is passed through stdin, this argument can be omitted",
         default="-",
         nargs="?",
     )
     parser.add_argument(
         "--input-format",
-        help="Force input format. If not provided, the format will be detected.",
+        help="Explicitly specify input format instead of auto-detection",
         required=False,
         choices=SUPPORTED_FORMATS,
     )
@@ -678,7 +700,7 @@ def define_convert_arguments(parser):
         dest="output_format",
         required=True,
         choices=SUPPORTED_FORMATS,
-        help="Output format",
+        help="Format to convert the data into",
     )
     parser.add_argument(
         "-o",
@@ -686,7 +708,7 @@ def define_convert_arguments(parser):
         dest="output",
         required=False,
         default=STDOUT,  # Coupled to convert() not allowing pretty print with output file.
-        help=f"Output file path or {STDOUT!r} for standard output.",
+        help=f"Where to write the output. Either a file path or '{STDOUT}' for console output",
     )
     parser.add_argument(
         "--width",
@@ -694,20 +716,20 @@ def define_convert_arguments(parser):
         required=False,
         type=int,
         default=SETTINGS["max_width"],
-        help="Width for yaml output.",
+        help="Maximum line width. Currently only enforced in YAML"
     )
     parser.add_argument(
         "--sort-keys",
         default=SETTINGS["sort_keys"],
         action=argparse.BooleanOptionalAction,
-        help="Sort keys in the output.",
+        help="Sort dictionary key and list values in the output alphabetically",
     )
     parser.add_argument(
         "--clean",
         dest="clean",
         required=False,
         action="store_true",
-        help="Clean the output before writing",
+        help="Remove keys and items with empty or null values from the output",
     )
     parser.add_argument(
         "-p",
@@ -715,20 +737,34 @@ def define_convert_arguments(parser):
         dest="pretty",
         required=False,
         action="store_true",
-        help="Pretty print the output",
+        help="Enable syntax highlighting and line numbers in console output",
     )
 
 
 def define_diff_arguments(diff_parser):
-    diff_parser.add_argument("input1", help="Input string, file path, '-' for stdin.")
-    diff_parser.add_argument("input2", help="Input string, file path, '-' for stdin.")
+    diff_parser.add_argument(
+        "input1",
+        help="First input to compare. Can be a string, file path, or '-' for stdin. When using stdin for input1, input2 must not use stdin",
+    )
+    diff_parser.add_argument(
+        "input2",
+        help="Second input to compare. Can be a string, file path, or '-' for stdin. When using stdin for input2, input1 must not use stdin",
+    )
     diff_parser.add_argument(
         "-o",
         "--output",
         dest="output_or_tool",
         required=False,
         default="diff",
-        help=f"Choices: an output file path, or {', '.join(SUPPORTED_DIFF_TOOLS)}. If an output file path: write the output of coreutils 'diff' to this path. 'diff': print the output of coreutils' diff to stdout. A diff program — 'delta', 'code' or 'pycharm': view the diff with the respective tool.",
+        help=(
+            "Options:\n"
+            f"- One of {SUPPORTED_FORMATS_STR}\n"
+            "- A file path: Save the diff output to this file\n"
+            "- 'diff': Show diff in terminal using coreutils diff\n"
+            "- 'delta': Open in delta diff viewer\n"
+            "- 'code': Open diff in VS Code\n"
+            "- 'pycharm': Open diff in PyCharm"
+        ),
     )
     diff_parser.add_argument(
         "-f",
@@ -736,28 +772,28 @@ def define_diff_arguments(diff_parser):
         dest="output_format",
         required=True,
         choices=SUPPORTED_FORMATS,
-        help="Convert inputs to this format before diffing.",
+        help="Show the diff in this format",
     )
 
     diff_parser.add_argument(
         "-q",
         "--quiet",
         action="store_true",
-        help="Do not print the diff to stdout, only return 0 for no difference, 1 for difference.",
+        help="Only return exit code (0=identical, 1=different) without showing diff output",
     )
 
     diff_parser.add_argument(
         "--input1-label",
         dest="input1_label",
         required=False,
-        help="Label for the first input. If unspecified, the filename is used if input1 is a file, otherwise 'input1_'.",
+        help="Custom label for the first input in diff output. Defaults to filename or 'input1_'",
     )
 
     diff_parser.add_argument(
         "--input2-label",
         dest="input2_label",
         required=False,
-        help="Label for the second input. If unspecified, the filename is used if input2 is a file, otherwise 'input2_'.",
+        help="Custom label for the second input in diff output. Defaults to filename or 'input2_'",
     )
 
     diff_parser.add_argument(
@@ -766,7 +802,7 @@ def define_diff_arguments(diff_parser):
         required=False,
         action="store_true",
         default=False,
-        help="Ignore order of keys when diffing.",
+        help="Ignore the order of dict keys and list values when diffing",
     )
     diff_parser.add_argument(
         "--ignore-empty",
@@ -774,7 +810,7 @@ def define_diff_arguments(diff_parser):
         required=False,
         action="store_true",
         default=False,
-        help="Do not count a missing key as different from an empty value.",
+        help="Treat missing keys as equivalent to keys with empty/null values",
     )
     diff_parser.add_argument(
         "--ignore-space",
@@ -782,7 +818,7 @@ def define_diff_arguments(diff_parser):
         required=False,
         action="store_true",
         default=False,
-        help="Ignore differences in whitespace.",
+        help="Ignore whitespace differences when comparing",
     )
 
 

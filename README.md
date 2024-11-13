@@ -40,7 +40,7 @@ The `--pretty` flag formats the output and prints it with syntax highlighting wi
 ```
 usage: to.py [-h] {convert,diff} ...
 
-Convert or compare between json, json5, toml, yaml.
+Convert or diff between JSON, YAML, TOML, JSON5 and literal Python collections.
 
 positional arguments:
   {convert,diff}
