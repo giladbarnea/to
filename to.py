@@ -604,9 +604,9 @@ class HelpFormatter(argparse.ArgumentDefaultsHelpFormatter):
 
     def format_help(self):
         help_text = super().format_help()
-
+        horizontal_separator = '\x1b[30m' + "—" * 80 + '\x1b[0m'
         for name, subparser in self.subparsers.items():
-            help_text += "\n" + "—" * 80 + f"\n\n\x1b[47;30m{name}\x1b[0m\n"
+            help_text += "\n " + horizontal_separator + f"\n\n\x1b[47;30m{name}\x1b[0m\n"
             original_formatter = subparser.formatter_class
             subparser.formatter_class = argparse.ArgumentDefaultsHelpFormatter
             subparser_help = subparser.format_help().replace("\x1b[47;30m", "").replace("\x1b[0m", "")
@@ -622,7 +622,7 @@ class HelpFormatter(argparse.ArgumentDefaultsHelpFormatter):
 def main():
     formatter = HelpFormatter(prog="to.py")
     parser = argparse.ArgumentParser(
-        description=f"Convert or compare between {SUPPORTED_FORMATS_STR}.",
+        description="Convert or compare between JSON, YAML, TOML, JSON5 and literal Python collections.",
         formatter_class=lambda prog: formatter,
     )
     subparsers = parser.add_subparsers(dest="command")
@@ -640,7 +640,7 @@ def main():
     # Diff command
     diff_parser = subparsers.add_parser(
         "diff",
-        help="Convert two files or data to FORMAT, then diff the result.",
+        help="Convert two files or raw data to FORMAT, then diff the results.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
 
