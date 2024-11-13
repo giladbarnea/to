@@ -7,6 +7,18 @@ requires-python = ">=3.10"
 [project.scripts]
 to = "to:main"
 
+[project.optional-dependencies]
+rich = [
+    "json5",
+    "ruamel-yaml",
+    "toml",
+]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "ruff",
+]

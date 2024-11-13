@@ -85,9 +85,6 @@ def import_rich():
 
 def is_piped():
     try:
-        import rich
-
-        rich.print(f"{stdin_available() = }, {stdin_has_value() = }", flush=True)
         # Note: sgpt does stdin_passed=not stdin_available()
         return not stdin_available() and stdin_has_value()
     except AttributeError:
