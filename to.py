@@ -1,8 +1,7 @@
-#!/usr/bin/env python3.10
+#!/usr/bin/env python3.11
 from __future__ import annotations
 
 import argparse
-import functools
 import json
 import os
 import shlex
@@ -10,22 +9,49 @@ import subprocess
 import sys
 import tempfile
 import typing
+from collections.abc import Callable
 from pathlib import Path
 from typing import Literal, Optional, Union
 
 Format = Literal["json", "json5", "toml", "yaml", "python"]
-SUPPORTED_FORMATS: list[str] = Format.__args__
+SUPPORTED_FORMATS: list[Format] = Format.__args__
 SUPPORTED_FORMATS_STR: str = ", ".join(SUPPORTED_FORMATS)
+DIFF_OUTPUT_TOOLS_HELP = {
+    "A file path": "Save the diff output to this file",
+    "diff": "Show diff in terminal using coreutils diff",
+    "delta": "Open in delta diff viewer",
+    "code": "Open diff in VS Code",
+    "pycharm": "Open diff in PyCharm",
+}
+
+DIFF_OUTPUT_TOOLS_HELP_FORMATTED = "\n".join(
+    f"- {k!r}: {v}" for k, v in DIFF_OUTPUT_TOOLS_HELP.items()
+)
 STDOUT = "stdout"
 SETTINGS = {"max_width": 120, "sort_keys": True}
 
 
 # ===[ Functional ]===
 # ---[ Helpers ]---
-def stderr(*args, **kwargs):
+def stderr(*args, **kwargs) -> None:
     print(*args, file=sys.stderr, flush=True, **kwargs)
 
 
+def cache[T, **P](func: Callable[P, T]) -> Callable[P, T]:
+    cache_dict = {}
+
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
+        key = args + tuple(sorted(kwargs.items()))
+        if key in cache_dict:
+            return cache_dict[key]
+        result = func(*args, **kwargs)
+        cache_dict[key] = result
+        return result
+
+    return wrapper
+
+
+# region ---[ Imports] ---
 def import_json5():
     try:
         import json5
@@ -85,7 +111,20 @@ def import_rich():
     return rich
 
 
-def is_piped():
+def import_pyperclip():
+    try:
+        import pyperclip
+    except ImportError:
+        stderr("pyperclip module not found. Please install via 'pip install pyperclip'")
+        sys.exit(1)
+    return pyperclip
+
+
+# endregion
+
+
+# region ---[ I/O Availability Checks ]---
+def is_piped() -> bool:
     try:
         # Note: sgpt does stdin_passed=not stdin_available()
         return not stdin_available() and stdin_has_value()
@@ -93,50 +132,55 @@ def is_piped():
         return False
 
 
-def stdin_available():
+@cache
+def stdin_available() -> bool:
     try:
         return sys.stdin.isatty()
     except AttributeError:
         return False
 
 
-def stdin_has_value():
+@cache
+def stdin_has_value() -> bool:
     return bool(read_stdin())
 
 
-@functools.lru_cache
-def read_stdin():
+@cache
+def read_stdin() -> str:
     """stdin can be read only once, so cache the result."""
     return sys.stdin.read()
 
 
-def stdout_available():
+@cache
+def stdout_available() -> bool:
     try:
         return sys.stdout.isatty()
     except AttributeError:
         return False
 
 
-def stderr_available():
+@cache
+def stderr_available() -> bool:
     try:
         return sys.stderr.isatty()
     except AttributeError:
         return False
 
 
-# ---[ IO ]---
+# endregion
 
 
+# region ---[ Data Serialization ]---
 def loads_data(data: str, input_format: Format) -> dict:
     if input_format == "json":
         return json.loads(data)
-    elif input_format == "json5":
+    if input_format == "json5":
         return json5_loads(data)
-    elif input_format == "toml":
+    if input_format == "toml":
         return toml_loads(data)
-    elif input_format == "yaml":
+    if input_format == "yaml":
         return yaml_loads(data)
-    elif input_format == "python":
+    if input_format == "python":
         return eval(data)
     raise ValueError(
         f"Unsupported format: {input_format!r}. Please use one of {SUPPORTED_FORMATS_STR}"
@@ -146,13 +190,13 @@ def loads_data(data: str, input_format: Format) -> dict:
 def dumps_data(data: dict, output_format: Format) -> str:
     if output_format == "json":
         return json_dumps(data)
-    elif output_format == "json5":
+    if output_format == "json5":
         return json5_dumps(data)
-    elif output_format == "toml":
+    if output_format == "toml":
         return toml_dumps(data)
-    elif output_format == "yaml":
+    if output_format == "yaml":
         return yaml_dumps(data)
-    elif output_format == "python":
+    if output_format == "python":
         return repr(data)
     raise ValueError(
         f"Unsupported format: {output_format!r}. Please use one of {SUPPORTED_FORMATS_STR}"
@@ -215,13 +259,10 @@ def python_collection_loads(data: str) -> dict:
     return evaluated
 
 
-# def jsonl_loads(data: str) -> str:
-#     lines = data.splitlines()
+# endregion
 
 
-# ---[ User Input Utils ]---
-
-
+# region ---[ User Input Utils ]---
 def load_input(
     input_arg: str, *, input_format: Optional[Format] = None
 ) -> tuple[str, Format]:
@@ -229,6 +270,11 @@ def load_input(
     if input_arg == "-":
         assert is_piped(), "input arg is '-' but no data piped to stdin."
         data = read_stdin()
+        format: Format = input_format if input_format else detect_format(data)
+        return data, format
+    if input_arg == "%paste":
+        pyperclip = import_pyperclip()
+        data = pyperclip.paste()
         format = input_format if input_format else detect_format(data)
         return data, format
     if not input_arg:
@@ -247,11 +293,6 @@ def load_input(
 
 
 def detect_format(string: str) -> Format:
-    # try:
-    #     [json.loads(line) for line in string.splitlines()]
-    #     return "jsonl"
-    # except json.JSONDecodeError:
-    #     pass
     try:
         json.loads(string)
         return "json"
@@ -277,11 +318,6 @@ def detect_format(string: str) -> Format:
             pass
         else:
             raise
-    # try:
-    #     jsonl_loads(string)
-    #     return "jsonl"
-    # except json.JSONDecodeError:
-    #     pass
 
     try:
         yaml_loads(string)
@@ -291,10 +327,6 @@ def detect_format(string: str) -> Format:
             pass
         else:
             raise
-
-    # import ipdb
-
-    # ipdb.set_trace()
 
     try:
         python_collection_loads(string)
@@ -315,11 +347,14 @@ def is_file(input_arg: Union[str, os.PathLike[str]]) -> Optional[Path]:
         return None
 
 
+# endregion
+
 # ===[ "Business" Logic ]===
 # ---[ Convert ]---
 
 Serializable = typing.TypeVar(
-    "Serializable", bound=Optional[Union[dict, list, str, int, bool]]
+    "Serializable",
+    bound=Optional[Union[dict, list, str, int, bool]],
 )
 
 
@@ -436,7 +471,7 @@ def print_data_to_stdout(formatted_data: str, output_format: Format, *, pretty: 
 # ---[ Diff ]---
 
 DiffTool = Literal["diff", "delta", "code", "pycharm"]
-SUPPORTED_DIFF_TOOLS: list[DiffTool] = ["diff", "delta", "code", "pycharm"]
+SUPPORTED_DIFF_TOOLS: list[DiffTool] = DiffTool.__args__
 
 
 def diff(args: argparse.Namespace) -> bool:
@@ -463,7 +498,7 @@ def diff(args: argparse.Namespace) -> bool:
 
     SETTINGS["sort_keys"] = ignore_order
     if ignore_space:
-        SETTINGS["max_width"] = 999
+        SETTINGS["max_width"] = 9999
     stringified_data1: str = _convert(
         input1,
         output_format=output_format,
@@ -607,11 +642,12 @@ def run_coreutils_diff(
 
 
 def main():
+    def argparse_formatter(prog):
+        return argparse.RawTextHelpFormatter(prog=prog, max_help_position=40, width=80)
+
     parser = argparse.ArgumentParser(
         description="Convert or diff between JSON, YAML, TOML, JSON5 and literal Python collections.",
-        formatter_class=lambda prog: argparse.ArgumentDefaultsHelpFormatter(
-            prog=prog, max_help_position=40, width=80
-        ),
+        formatter_class=argparse_formatter,
     )
     subparsers = parser.add_subparsers(
         dest="command", required=False, metavar="command"
@@ -621,7 +657,7 @@ def main():
     convert_parser: argparse.ArgumentParser = subparsers.add_parser(
         "convert",
         help="Convert between JSON, YAML, TOML, JSON5 and literal Python collections.",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        formatter_class=argparse_formatter,
     )
 
     define_convert_arguments(convert_parser)
@@ -630,7 +666,7 @@ def main():
     diff_parser: argparse.ArgumentParser = subparsers.add_parser(
         "diff",
         help="Diff between JSON, YAML, TOML, JSON5 and literal Python collections.",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        formatter_class=argparse_formatter,
     )
 
     define_diff_arguments(diff_parser)
@@ -649,10 +685,10 @@ def main():
         sys.exit(1)
 
 
-def define_convert_arguments(parser):
+def define_convert_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "input",
-        help="Data to convert. Can be a string, file path, or '-' for stdin. If data is passed through stdin, this argument can be omitted",
+        help="Data to convert. Can be a string, file path, '-' for stdin, or %%paste for clipboard content. If data is passed through stdin, this argument can be omitted",
         default="-",
         nargs="?",
     )
@@ -709,14 +745,14 @@ def define_convert_arguments(parser):
     )
 
 
-def define_diff_arguments(diff_parser):
+def define_diff_arguments(diff_parser: argparse.ArgumentParser) -> None:
     diff_parser.add_argument(
         "input1",
-        help="First input to compare. Can be a string, file path, or '-' for stdin. When using stdin for input1, input2 must not use stdin",
+        help="First input to compare. Can be a string, file path, '-' for stdin, or %%paste for clipboard content. When using stdin for input1, input2 must not use stdin; similarily, when specifying %%paste for input1, input2 must not use %%paste.",
     )
     diff_parser.add_argument(
         "input2",
-        help="Second input to compare. Can be a string, file path, or '-' for stdin. When using stdin for input2, input1 must not use stdin",
+        help="Second input to compare. Can be a string, file path, '-' for stdin, or %%paste for clipboard content. When using stdin for input2, input1 must not use stdin; similarily, when specifying %%paste for input2, input1 must not use %%paste.",
     )
     diff_parser.add_argument(
         "-o",
@@ -726,12 +762,7 @@ def define_diff_arguments(diff_parser):
         default="diff",
         help=(
             "Options:\n"
-            f"- One of {SUPPORTED_FORMATS_STR}\n"
-            "- A file path: Save the diff output to this file\n"
-            "- 'diff': Show diff in terminal using coreutils diff\n"
-            "- 'delta': Open in delta diff viewer\n"
-            "- 'code': Open diff in VS Code\n"
-            "- 'pycharm': Open diff in PyCharm"
+            f"- One of {SUPPORTED_FORMATS_STR}\n" + DIFF_OUTPUT_TOOLS_HELP_FORMATTED
         ),
     )
     diff_parser.add_argument(
@@ -764,6 +795,8 @@ def define_diff_arguments(diff_parser):
         help="Custom label for the second input in diff output. Defaults to filename or 'input2_'",
     )
 
+    # These do not derive their default values from SETTINGS on purpose.
+    #  Defaulting either to other than False is "insane defaults".
     diff_parser.add_argument(
         "--ignore-order",
         dest="ignore_order",
