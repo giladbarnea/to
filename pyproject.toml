@@ -13,7 +13,9 @@ build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = [
+    "ipdb",
     "ipython",
+    "pytest",
     "ruff",
 ]
 pretty = [
@@ -27,4 +29,7 @@ json5 = [
 ]
 toml = [
     "toml",
+]
+magic = [
+    "pyperclip",
 ]
