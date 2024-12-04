@@ -13,6 +13,7 @@ build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = [
+    "argcomplete",
     "ipdb",
     "ipython",
     "pytest",

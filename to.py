@@ -1,4 +1,5 @@
 #!/usr/bin/env python3.11
+# PYTHON_ARGCOMPLETE_OK
 from __future__ import annotations
 
 import argparse
@@ -13,6 +14,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Literal, Optional, Union
 
+import argcomplete
 Format = Literal["json", "json5", "toml", "yaml", "python"]
 SUPPORTED_FORMATS: list[Format] = Format.__args__
 SUPPORTED_FORMATS_STR: str = ", ".join(SUPPORTED_FORMATS)
@@ -671,6 +673,7 @@ def main():
 
     define_diff_arguments(diff_parser)
 
+    argcomplete.autocomplete(parser)
     args: argparse.Namespace = parser.parse_args()
     if args.command is None:
         args.command = "convert"
