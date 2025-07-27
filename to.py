@@ -14,7 +14,11 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Literal, Optional, Union
 
-import argcomplete
+try:
+    import argcomplete
+except ModuleNotFoundError:
+    pass
+
 Format = Literal["json", "json5", "toml", "yaml", "python"]
 SUPPORTED_FORMATS: list[Format] = Format.__args__
 SUPPORTED_FORMATS_STR: str = ", ".join(SUPPORTED_FORMATS)
@@ -673,7 +677,10 @@ def main():
 
     define_diff_arguments(diff_parser)
 
-    argcomplete.autocomplete(parser)
+    try:
+        argcomplete.autocomplete(parser)
+    except NameError:
+        pass
     args: argparse.Namespace = parser.parse_args()
     if args.command is None:
         args.command = "convert"
