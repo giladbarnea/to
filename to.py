@@ -648,6 +648,9 @@ def run_coreutils_diff(
 
 
 def main():
+    if sys.argv[1] not in ("convert", "diff"):
+        sys.argv.insert(1, "convert")
+
     def argparse_formatter(prog):
         return argparse.RawTextHelpFormatter(prog=prog, max_help_position=40, width=80)
 
