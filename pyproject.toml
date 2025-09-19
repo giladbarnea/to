@@ -2,7 +2,7 @@
 name = "to"
 version = "0.1"
 description = "CLI & Python package to convert or diff between JSON, YAML, TOML, JSON5 and literal Python collections."
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 dependencies = [
     "json5>=0.9.28",
     "ruamel-yaml>=0.18.6",

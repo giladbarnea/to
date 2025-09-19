@@ -329,7 +329,7 @@ def detect_format(string: str) -> Format:
         yaml_loads(string)
         return "yaml"
     except Exception as e:
-        if "YAMLError" in repr(e):
+        if "YAMLError" in (repr_e := repr(e)) or "ParserError" in repr_e:
             pass
         else:
             raise
