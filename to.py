@@ -210,7 +210,7 @@ def dumps_data(data: dict, output_format: Format) -> str:
 
 
 def json_dumps(data) -> str:
-    return json.dumps(data, indent=4, sort_keys=SETTINGS["sort_keys"])
+    return json.dumps(data, indent=4, sort_keys=SETTINGS["sort_keys"], ensure_ascii=False)
 
 
 def json5_loads(data: str) -> dict:
